@@ -710,14 +710,16 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Фильтруем невидимые полигоны (часть 2)
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
-                        {
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                 {
+                     if (model[ActiveUnitIndex[i]] != null)
+                         if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
+                         {
                             #region Фильтрация полигонов, отвернутых от сцены
                             if (model[ActiveUnitIndex[i]].FilterPolygonDirectedAwayFromScene() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                             #endregion
                         }
+                 });
                 #endregion
 
                 #region Сортировка моделей
@@ -725,17 +727,20 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Сортировка полигонов моделей
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
-                            if (model[ActiveUnitIndex[i]].SortActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                 {
+                     if (model[ActiveUnitIndex[i]] != null)
+                         if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
+                             if (model[ActiveUnitIndex[i]].SortActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                 });
                 #endregion
-                
+
                 #region Расчет освещения полигонов
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
-                        {
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                 {
+                     if (model[ActiveUnitIndex[i]] != null)
+                         if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
+                         {
                             #region Расчет нормалей для расчета освещения
                             if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(false) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                             #endregion
@@ -745,9 +750,10 @@ namespace Unit3DStudio
                             #endregion
 
                             for (int j = 0; j < DirectLightColor.Length; j++)
-                                if (model[ActiveUnitIndex[i]].AddLight(DirectVectorLight[j], DirectLightColor[j], DirectLightPower[j], LightTypes.Directional) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            if (model[ActiveUnitIndex[i]].AddLight(null, Color.FromArgb(255, AmbientColorR, AmbientColorG, AmbientColorB), AmbientLightPower, LightTypes.Ambient) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                        }
+                                 if (model[ActiveUnitIndex[i]].AddLight(DirectVectorLight[j], DirectLightColor[j], DirectLightPower[j], LightTypes.Directional) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                             if (model[ActiveUnitIndex[i]].AddLight(null, Color.FromArgb(255, AmbientColorR, AmbientColorG, AmbientColorB), AmbientLightPower, LightTypes.Ambient) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                         }
+                 });
                 #endregion
 
                 #endregion
