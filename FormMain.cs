@@ -589,23 +589,27 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Сбрасываем индексы полигонов акитивных моделей
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ResetActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                  {
+                      if (model[ActiveUnitIndex[i]] != null)
+                          if (model[ActiveUnitIndex[i]].ResetActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                  });
                 #endregion сбрасываем индексы полигонов акитивных моделей
 
                 #region Сброс вершин деформаций
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ResetCameraModel() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                  {
+                      if (model[ActiveUnitIndex[i]] != null)
+                          if (model[ActiveUnitIndex[i]].ResetCameraModel() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                  });
                 #endregion
 
                 #region Обработка модификаторов
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                {
-                    if (ActiveUnitIndex[i] < CoordLineCount + SelectionLineCount) continue;
-                    ModifyModel(model[ActiveUnitIndex[i]], MeshMod[ActiveUnitIndex[i] - CoordLineCount - SelectionLineCount]);
-                }
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                  {
+                      if (ActiveUnitIndex[i] < CoordLineCount + SelectionLineCount) return;
+                      ModifyModel(model[ActiveUnitIndex[i]], MeshMod[ActiveUnitIndex[i] - CoordLineCount - SelectionLineCount]);
+                  });
                 MouseSelectedObjectIdx = SelectedObjectIdx;
                 MouseSelectObject(true);
                 #endregion
