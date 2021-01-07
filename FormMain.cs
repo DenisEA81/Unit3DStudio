@@ -638,23 +638,23 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Модели
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                {
-                    if (model[ActiveUnitIndex[i]] != null)
-                    {
-                        if (ScreenshotMode & ScreenshotSeries)
-                            if (model[ActiveUnitIndex[i]].Rotate(ScreenshotSeriesPos, Axis3D.OYxz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                  {
+                      if (model[ActiveUnitIndex[i]] != null)
+                      {
+                          if (ScreenshotMode & ScreenshotSeries)
+                              if (model[ActiveUnitIndex[i]].Rotate(ScreenshotSeriesPos, Axis3D.OYxz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
 
-                        if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.X, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                        if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.Z, Axis3D.OYxz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                        if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.Y, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                          if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.X, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                          if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.Z, Axis3D.OYxz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                          if (model[ActiveUnitIndex[i]].Rotate(CameraAngle.Y, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
 
-                        if (ScreenshotMode & ScreenshotSeries)
-                            if (model[ActiveUnitIndex[i]].Rotate(ScreenshotSeriesAngle, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                          if (ScreenshotMode & ScreenshotSeries)
+                              if (model[ActiveUnitIndex[i]].Rotate(ScreenshotSeriesAngle, Axis3D.OXyz) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
 
-                        if (model[ActiveUnitIndex[i]].Move(CameraPos.X, CameraPos.Y, (ScreenshotMode & ScreenshotSeries)? ScreenshotSeriesCameraZ : CameraPos.Z) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                    }
-                }
+                          if (model[ActiveUnitIndex[i]].Move(CameraPos.X, CameraPos.Y, (ScreenshotMode & ScreenshotSeries) ? ScreenshotSeriesCameraZ : CameraPos.Z) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                      }
+                  });
                 if (ScreenshotMode & ScreenshotSeries)
                     ScreenshotSeriesPos += ScreenshotSeriesStep;
                 #endregion модели
@@ -664,25 +664,30 @@ namespace Unit3DStudio
                 #region Обработка полигонов
 
                 #region Создаем экранное пространство
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].CreateScreenVertex(PerspectiveK, (int)(pictMain.ClientRectangle.Width / 2), (int)(-pictMain.ClientRectangle.Height / 2)) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                     {
+                         if (model[ActiveUnitIndex[i]] != null)
+                             if (model[ActiveUnitIndex[i]].CreateScreenVertex(PerspectiveK, (int)(pictMain.ClientRectangle.Width / 2), (int)(-pictMain.ClientRectangle.Height / 2)) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                     });
 
                 if (Engine3D.Point3DPresentationConversion(CoordLineTopCamera, PerspectiveK, (int)(pictMain.ClientRectangle.Width / 2), (int)(-pictMain.ClientRectangle.Height / 2)) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                 #endregion
 
                 #region Расчет центров полигонов для расчета освещения
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].CalculatePolygonCenters() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                  {
+                      if (model[ActiveUnitIndex[i]] != null)
+                          if (model[ActiveUnitIndex[i]].CalculatePolygonCenters() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                  });
                 #endregion
 
                 #region Фильтруем невидимые полигоны (часть 1)
                 {
                     Point tmpPoint = new Point(pictMain.ClientRectangle.Width, pictMain.ClientRectangle.Height);
-                    for (int i = 0; i < ActiveUnitIndexCount; i++)
-                        if (model[ActiveUnitIndex[i]] != null)
-                        {
+                    Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                      {
+                          if (model[ActiveUnitIndex[i]] != null)
+                          {
                             #region Фильтрация слишком близко расположенных полигонов
                             if (model[ActiveUnitIndex[i]].FilterPolygonByZPos(0, -1) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                             #endregion
@@ -691,14 +696,17 @@ namespace Unit3DStudio
                             if (model[ActiveUnitIndex[i]].FilterPolygonByXYPos(tmpPoint) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                             #endregion
                         }
+                      });
                 }
                 #endregion
 
                 #region Расчет нормалей к полигонам
-                for (int i = 0; i < ActiveUnitIndexCount; i++)
-                    if (model[ActiveUnitIndex[i]] != null)
-                        if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
-                            if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(true) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                Parallel.For(0, ActiveUnitIndexCount, (int i) =>
+                 {
+                     if (model[ActiveUnitIndex[i]] != null)
+                         if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
+                             if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(true) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                 });
                 #endregion
 
                 #region Фильтруем невидимые полигоны (часть 2)
