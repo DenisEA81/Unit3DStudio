@@ -564,7 +564,7 @@ namespace Unit3DStudio
                 timerDraw.Enabled = false;
                 if (pictMain.ClientRectangle.Width == 0) return;
 
-                FPSStatistics fpsStatistics = new FPSStatistics("start",100);                
+                FPSStatistics fpsStatistics = new FPSStatistics("Старт", 100);                
 
                 #region Инициализируем поверхности рисования при необходимости
                 if (buffDrawMain == null) buffDrawMain = new Bitmap(pictMain.ClientRectangle.Width, pictMain.ClientRectangle.Height);
@@ -575,36 +575,40 @@ namespace Unit3DStudio
 
                 #region Заливаем поверхность рисования цветом фона                
                 graphDrawMain.Clear(Color.FromArgb((ScreenshotMode & ScreenshotAlpha) ? 0 : 255, BackgroundColorR, BackgroundColorG, BackgroundColorB));
-                #endregion заливаем поверхность рисования цветом фона
+                #endregion заливаем поверхность рисования цветом фона                
 
                 if (ScreenshotMode)
                 {
                     SelectedObjectIdx = -1;
                     DeselectObject();
                 }
+                fpsStatistics.NextPoint("Инициализация и залифка фона");
 
-                #region Сбрасываем список активных моделей (юнитов)
+                #region Сбрасываем список активных моделей (юнитов)                
                 Parallel.For(0,UnitCount,(int i)=> { ActiveUnitIndex[i] = i; });
                 ActiveUnitIndexCount = UnitCount;
+                fpsStatistics.NextPoint("Сбрасываем список активных моделей (юнитов)");
                 #endregion
 
-                #region Сбрасываем индексы полигонов акитивных моделей
+                #region Сбрасываем индексы полигонов акитивных моделей                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                   {
                       if (model[ActiveUnitIndex[i]] != null)
                           if (model[ActiveUnitIndex[i]].ResetActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                   });
+                fpsStatistics.NextPoint("Сбрасываем индексы полигонов акитивных моделей");
                 #endregion сбрасываем индексы полигонов акитивных моделей
 
-                #region Сброс вершин деформаций
+                #region Сброс вершин деформаций                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                   {
                       if (model[ActiveUnitIndex[i]] != null)
                           if (model[ActiveUnitIndex[i]].ResetCameraModel() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                   });
+                fpsStatistics.NextPoint("Сброс вершин деформаций");
                 #endregion
 
-                #region Обработка модификаторов
+                #region Обработка модификаторов                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                   {
                       if (ActiveUnitIndex[i] < CoordLineCount + SelectionLineCount) return;
@@ -612,11 +616,12 @@ namespace Unit3DStudio
                   });
                 MouseSelectedObjectIdx = SelectedObjectIdx;
                 MouseSelectObject(true);
+                fpsStatistics.NextPoint("Обработка модификаторов");
                 #endregion
 
                 #region Поворот камеры
 
-                #region Освещение
+                #region Освещение                
                 for (int i = 0; i < DirectVectorLight.Length; i++)
                 {
                     DirectVectorLight[i].CopyFrom(DirectLightVectorX[i], DirectLightVectorY[i], DirectLightVectorZ[i]);
@@ -624,9 +629,10 @@ namespace Unit3DStudio
                     //if (Engine3D.RotatePoint3D(CameraAngleZX, Axis3D.OYxz, DirectVectorLight[i]) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                     //if (Engine3D.RotatePoint3D(CameraAngleYZ, Axis3D.OXyz, DirectVectorLight[i]) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                 }
+                fpsStatistics.NextPoint("Поворот камеры - Освещение");
                 #endregion
 
-                #region Подписи к линиям координат
+                #region Подписи к линиям координат                
                 for (int i = 0; i < 3; i++)
                 {
                     CoordLineTopCamera[i].CopyFrom(CoordLineTopMain[i]);
@@ -635,9 +641,10 @@ namespace Unit3DStudio
                     if (Engine3D.RotatePoint3D(CameraAngle.Y, Axis3D.OXyz, CoordLineTopCamera[i]) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                     if (Engine3D.MovePoint3D(CameraPos.X, CameraPos.Y, CameraPos.Z, CoordLineTopCamera[i]) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                 }
+                fpsStatistics.NextPoint("Поворот камеры - Подписи к линиям координат");
                 #endregion
 
-                #region Модели
+                #region Модели                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                   {
                       if (model[ActiveUnitIndex[i]] != null)
@@ -657,13 +664,14 @@ namespace Unit3DStudio
                   });
                 if (ScreenshotMode & ScreenshotSeries)
                     ScreenshotSeriesPos += ScreenshotSeriesStep;
+                fpsStatistics.NextPoint("Поворот камеры - Модели");
                 #endregion модели
 
                 #endregion поворот камеры
 
                 #region Обработка полигонов
 
-                #region Создаем экранное пространство
+                #region Создаем экранное пространство                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                      {
                          if (model[ActiveUnitIndex[i]] != null)
@@ -671,18 +679,20 @@ namespace Unit3DStudio
                      });
 
                 if (Engine3D.Point3DPresentationConversion(CoordLineTopCamera, PerspectiveK, (int)(pictMain.ClientRectangle.Width / 2), (int)(-pictMain.ClientRectangle.Height / 2)) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                fpsStatistics.NextPoint("Создание экранного пространства");
                 #endregion
 
-                #region Расчет центров полигонов для расчета освещения
+                #region Расчет центров полигонов для расчета освещения                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                   {
                       if (model[ActiveUnitIndex[i]] != null)
                           if (model[ActiveUnitIndex[i]].CalculatePolygonCenters() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                   });
+                fpsStatistics.NextPoint("Расчет центров полигонов для расчета освещения");
                 #endregion
 
                 #region Фильтруем невидимые полигоны (часть 1)
-                {
+                {                    
                     Point tmpPoint = new Point(pictMain.ClientRectangle.Width, pictMain.ClientRectangle.Height);
                     Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                       {
@@ -697,19 +707,21 @@ namespace Unit3DStudio
                             #endregion
                         }
                       });
+                    fpsStatistics.NextPoint("Фильтруем невидимые полигоны (часть 1)");
                 }
                 #endregion
 
-                #region Расчет нормалей к полигонам
+                #region Расчет нормалей к полигонам                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                  {
                      if (model[ActiveUnitIndex[i]] != null)
                          if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
                              if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(true) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                  });
+                fpsStatistics.NextPoint("Расчет нормалей к полигонам");
                 #endregion
 
-                #region Фильтруем невидимые полигоны (часть 2)
+                #region Фильтруем невидимые полигоны (часть 2)                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                  {
                      if (model[ActiveUnitIndex[i]] != null)
@@ -720,19 +732,21 @@ namespace Unit3DStudio
                             #endregion
                         }
                  });
+                fpsStatistics.NextPoint("Фильтруем невидимые полигоны (часть 2)");
                 #endregion
 
                 #region Сортировка моделей
                 // внутри ModelController
                 #endregion
 
-                #region Сортировка полигонов моделей
+                #region Сортировка полигонов моделей                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                  {
                      if (model[ActiveUnitIndex[i]] != null)
                          if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
                              if (model[ActiveUnitIndex[i]].SortActivePolygonIndexes() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                  });
+                fpsStatistics.NextPoint("Сортировка полигонов моделей");
                 #endregion
 
                 #region Расчет освещения полигонов
@@ -754,16 +768,18 @@ namespace Unit3DStudio
                              if (model[ActiveUnitIndex[i]].AddLight(null, Color.FromArgb(255, AmbientColorR, AmbientColorG, AmbientColorB), AmbientLightPower, LightTypes.Ambient) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                          }
                  });
+                fpsStatistics.NextPoint("Расчет освещения полигонов");
                 #endregion
 
                 #endregion
 
-                #region Слияние стеков полигонов в контроллер коллекций
+                #region Слияние стеков полигонов в контроллер коллекций                
                 if (modelController.MergeActivePolygon() != 0) throw new Exception(ErrorLog.GetLastError());
+                fpsStatistics.NextPoint("Слияние стеков полигонов в контроллер коллекций");
                 #endregion
 
                 #region Выбор объекта                
-                {
+                {                    
                     if (MouseSelectedObjectIdx == -1)
                     {
                         PointF[] p = new PointF[3];
@@ -800,6 +816,7 @@ namespace Unit3DStudio
                         MouseSelectedObjectIdx = -2;
                     }
                 }
+                fpsStatistics.NextPoint("Выбор объекта");
                 #endregion
 
                 #region Отрисовка сцены
@@ -815,9 +832,10 @@ namespace Unit3DStudio
                         if (modelController.ShowModel(graphDrawMain, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
                         break;
                 }
+                fpsStatistics.NextPoint("Отрисовка сцены");
                 #endregion
 
-                fpsStatistics.NextPoint("Конец отрисовки сцены");
+
 
                 #region Сохранение в растровый файл                
                 if (ScreenshotMode)
@@ -882,16 +900,23 @@ namespace Unit3DStudio
 
                 #endregion cоздание и отрисовка сцены  
 
+                fpsStatistics.NextPoint("Вспомогательные действия");
+
                 #region Подписи
                 if (TechInfoToolStripMenuItem.Checked)
                 {
+                    string FPSText = "";
+                    for (int i = 1; i < fpsStatistics.CurrentTimePoint; i++)
+                        FPSText += $"\n\t{fpsStatistics.PointDescription[i]}: { fpsStatistics.Percent(i)}%";
+
                     SolidBrush brush = new SolidBrush(Color.Black);
-                    graphDrawMain.DrawString("Координаты камеры: x:" + CameraPos.X.ToString() + 
-                                                              "; y:" + CameraPos.Y.ToString() + 
-                                                              "; z:" + CameraPos.Z.ToString() + 
-                                                              "; Количество полигонов активных/всего: " + (modelController.CollectionActivePolygonCount - 2088).ToString() + 
-                                                              " / " + (modelController.ActivePolygonBuffer.Length - 2088).ToString()+
-                                                              "; FPS: "+ fpsStatistics.FPS().ToString()
+                    graphDrawMain.DrawString("Координаты камеры: x:" + CameraPos.X.ToString() +
+                                                              "; y:" + CameraPos.Y.ToString() +
+                                                              "; z:" + CameraPos.Z.ToString() +
+                                                              "; \nКоличество полигонов активных/всего: " + (modelController.CollectionActivePolygonCount - 2088).ToString() +
+                                                              " / " + (modelController.ActivePolygonBuffer.Length - 2088).ToString() +
+                                                              "\nFPS: " + fpsStatistics.FPS().ToString() +
+                                                              FPSText 
                         , frmMain.DefaultFont, brush, 0, 0);
                 }
                 #endregion
