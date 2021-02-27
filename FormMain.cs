@@ -739,7 +739,7 @@ namespace Unit3DStudio
                 // внутри ModelController
                 #endregion
 
-                #region Сортировка полигонов моделей                
+                #region Сортировка полигонов моделей // параллельная обработка сокращает процессорное время с 21-22% до 7-9% (в 3 раза)                
                 Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                  {
                      if (model[ActiveUnitIndex[i]] != null)
