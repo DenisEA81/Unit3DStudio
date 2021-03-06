@@ -24,6 +24,7 @@ namespace Unit3DStudio
         public int RedoAutoSaveIndex = 0;
         public bool isEditedProject = false;
         public bool isEditedObject = false;
+        public ProjectSaver projectSaver = new ProjectSaver();
         #endregion
 
         #region Скриншоты
@@ -3139,6 +3140,9 @@ namespace Unit3DStudio
 
         public void SaveProject(string FileName)
         {
+            if (projectSaver.Saving) return;
+            projectSaver.Saving = true;
+
             #region Определяем шаблон файла
             {
                 int pos = FileName.LastIndexOf(".");
@@ -3148,75 +3152,97 @@ namespace Unit3DStudio
             #endregion
 
             timerDraw.Enabled = false;
-
-            #region Сохраняем модели в файл
-            for (int i = CoordLineCount + SelectionLineCount; i < UnitCount; i++)
             {
-                string sFile = FileName + (i - CoordLineCount - SelectionLineCount).ToString() + ".msh";
-
-                model[i].ResetCameraModel();
-
-                #region Записываем полигонный объект в файл на основе главной вершинной модели с сохранением всех начальных параметров
-                switch (model[i].ModelType())
+                #region Сохранение объектов в временные переменные 
+                VolumetricModel3D[] temp = new VolumetricModel3D[UnitCount - CoordLineCount - SelectionLineCount];
                 {
-                    case ModelTypes.ComplexModel3D:
-                        if (model[i].SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.Plane3D:
-                        if (((Plane3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.CellPlane3D:
-                        if (((CellPlane3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.Cylinder3D:
-                        if (((Cylinder3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.Ellipse3D:
-                        if (((Ellipse3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.Tor3D:
-                        if (((Tor3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.Prism3D:
-                        if (((Prism3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
-                    case ModelTypes.SurfaceHole3D:
-                        if (((SurfaceHole3D)model[i]).SaveModelToFile(sFile) != 0) throw new Exception(ErrorLog.GetLastError());
-                        break;
+                    int n = 0;
+                    for (int i = CoordLineCount + SelectionLineCount; i < UnitCount; i++, n++)
+                    {
+                        #region Записываем полигонный объект в файл на основе главной вершинной модели с сохранением всех начальных параметров
+                        switch (model[i].ModelType())
+                        {
+                            case ModelTypes.ComplexModel3D:
+                                temp[n] = new ComplexModel3D();
+                                break;
+                            case ModelTypes.Plane3D:
+                                temp[n] = new Plane3D();
+                                break;
+                            case ModelTypes.CellPlane3D:
+                                temp[n] = new CellPlane3D();
+                                break;
+                            case ModelTypes.Cylinder3D:
+                                temp[n] = new Cylinder3D();
+                                break;
+                            case ModelTypes.Ellipse3D:
+                                temp[n] = new Ellipse3D();
+                                break;
+                            case ModelTypes.Tor3D:
+                                temp[n] = new Tor3D();
+                                break;
+                            case ModelTypes.Prism3D:
+                                temp[n] = new Prism3D();
+                                break;
+                            case ModelTypes.SurfaceHole3D:
+                                temp[n] = new SurfaceHole3D();
+                                break;
+                        }
+                        temp[n].CreateModelFrom(model[i]);
+                        #endregion
+                    }
                 }
+                MeshModifications[] tempMesh = new MeshModifications[MaxUnitCount];
+                for (int n = 0; n < temp.Length; n++)
+                    tempMesh[n] = MeshMod[n] != null ? new MeshModifications(MeshMod[n]) : null;
                 #endregion
 
-                #region Дописываем модификаторы
 
-                #region Определяем шаблон файла для i-го объекта               
-                int pos = sFile.LastIndexOf(".");
-                if (pos >= 0) sFile = sFile.Substring(0, pos).Trim();
-                if (sFile == "") throw new Exception("Некорректное имя файла");
-                sFile += ".mdy";
-                #endregion
-
-                MeshMod[i - CoordLineCount - SelectionLineCount].SaveToFile(sFile);
-                #endregion
-            }
-            #endregion
-
-            #region Сохраняем информационный файл проекта
-            StreamWriter file = new StreamWriter(FileName + ".pjm", false, System.Text.Encoding.Default);
-            try
-            {
-                CultureInfo culture = CultureInfo.InvariantCulture;
-                file.WriteLine("* Файл проекта 3D-моделей");
-                file.WriteLine("* Время создания файла: " + DateTime.Now.ToString());
-                file.WriteLine("Model_Count=" + (UnitCount - CoordLineCount - SelectionLineCount).ToString());
-                file.WriteLine("ModifyFilesFormat=Separated");
-            }
-            finally
-            {
-                file.Close();
-                file.Dispose();
                 timerDraw.Enabled = true;
+
+                Task taskSave = new Task(() =>
+                {
+                    #region Сохраняем модели в файл
+                    for (int i = 0; i < temp.Length; i++)
+                    {
+                        string sFile = FileName + i.ToString() + ".msh";
+
+                        temp[i].SaveModelToFile(sFile);
+
+
+                        #region Дописываем модификаторы
+
+                        #region Определяем шаблон файла для i-го объекта               
+                        int pos = sFile.LastIndexOf(".");
+                        if (pos >= 0) sFile = sFile.Substring(0, pos).Trim();
+                        if (sFile == "") throw new Exception("Некорректное имя файла");
+                        sFile += ".mdy";
+                        #endregion
+
+                        tempMesh[i]?.SaveToFile(sFile);
+                        #endregion
+                    }
+                    #endregion
+
+                    #region Сохраняем информационный файл проекта
+                    StreamWriter file = new StreamWriter(FileName + ".pjm", false, System.Text.Encoding.Default);
+                    try
+                    {
+                        CultureInfo culture = CultureInfo.InvariantCulture;
+                        file.WriteLine("* Файл проекта 3D-моделей");
+                        file.WriteLine("* Время создания файла: " + DateTime.Now.ToString());
+                        file.WriteLine("Model_Count=" + (UnitCount - CoordLineCount - SelectionLineCount).ToString());
+                        file.WriteLine("ModifyFilesFormat=Separated");
+                    }
+                    finally
+                    {
+                        file.Close();
+                        file.Dispose();
+                        projectSaver.Saving = false;
+                    }
+                    #endregion
+                });
+                taskSave.Start();
             }
-            #endregion            
         }
 
         public void OpenProject(string FileName, bool isRecovery = false, bool fAdd = false)
@@ -4059,6 +4085,14 @@ namespace Unit3DStudio
             CurrentLength = 0;
         }
 
+        public MeshModifications(MeshModifications template)
+        {
+            MeshInfo = new MeshModify[template.MeshInfo.Length];
+            for (int i = 0; i < MeshInfo.Length; i++)
+                MeshInfo[i] = template?.MeshInfo[i]!=null?new MeshModify(template?.MeshInfo[i]):null;
+            CurrentLength = template.CurrentLength;
+        }
+
         public void Add(MeshModify info, int index = -1)
         {
             if (CurrentLength >= MeshInfo.Length) throw new Exception("MeshModifications.Add: недостаточный размер буфера модификаций");
@@ -4479,5 +4513,10 @@ namespace Unit3DStudio
             }
             return "";
         }
+    }
+
+    public class ProjectSaver
+    {
+        public bool Saving = false;
     }
 }
