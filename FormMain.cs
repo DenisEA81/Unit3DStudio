@@ -29,10 +29,10 @@ namespace Unit3DStudio
 
         #region Скриншоты
         public static bool ScreenshotMode = false;
-        public static bool ScreenshotAlpha = true;        
+        public static bool ScreenshotAlpha = true;
         public static bool ScreenshotFrame = false;
         public static bool ScreenshotSeries = false;
-        public static float ScreenshotSeriesStep = Engine3D.Radian90/2;
+        public static float ScreenshotSeriesStep = Engine3D.Radian90 / 2;
         public static float ScreenshotSeriesPos = 0;
         public static float ScreenshotSeriesAngle = 0;
         public static float ScreenshotSeriesCameraZ = 0;
@@ -40,7 +40,7 @@ namespace Unit3DStudio
         public static string ScreenshotFileName = "";
         public static int ScreenshotSeriesFileNum = 0;
         public static int ScreenshotSeriesFileMask = 3;
-        public static Point WindowFrame = new Point(512,512);
+        public static Point WindowFrame = new Point(512, 512);
         public static bool WindowInFrame = false;
         #endregion
 
@@ -55,11 +55,12 @@ namespace Unit3DStudio
         /// Отключение событий визуальных элементов
         /// </summary>
         public int VisualComponentMethodLock = 0;
-        
+
 
         #region Поверхности рисования и их настройки
-        private Bitmap buffDrawMain = null;
-        private Graphics graphDrawMain = null;
+        IDrawingSurface Surface = null;
+        IDrawingSurfaceBuilder SurfaceBuilder = null;
+        int SurfaceBufferCount = 0;
         #endregion
 
         #region Коэффициент перспективы
@@ -180,7 +181,7 @@ namespace Unit3DStudio
 
         private void новыйToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            NewProject();            
+            NewProject();
         }
 
         public DialogResult NewProject(bool isRecovery = false)
@@ -259,12 +260,12 @@ namespace Unit3DStudio
             {
                 #region Инициализация интерфейса
                 VisualComponentMethodLock = 0;
-                
+
                 #region Каталог временных файлов
                 try
                 {
                     string tmpS = Application.ExecutablePath;
-                    TempDirectory = tmpS.Substring(0, tmpS.LastIndexOf("\\")) + TempDirectory+DateTime.Now.Ticks.ToString();
+                    TempDirectory = tmpS.Substring(0, tmpS.LastIndexOf("\\")) + TempDirectory + DateTime.Now.Ticks.ToString();
                     ScreenshotFolder = tmpS.Substring(0, tmpS.LastIndexOf("\\")) + ScreenshotFolder;
                     ApplicationFolder = tmpS.Substring(0, tmpS.LastIndexOf("\\"));
                 }
@@ -286,10 +287,10 @@ namespace Unit3DStudio
                 }
                 catch (Exception er)
                 {
-                    MessageBox.Show("Ошибка при создании каталога для хранения временных файлов.\n"+er.Message);
-                }                
+                    MessageBox.Show("Ошибка при создании каталога для хранения временных файлов.\n" + er.Message);
+                }
                 TempProjectName = TempDirectory + TempProjectFileName;
-                
+
                 #endregion
 
                 isEditedProject = false;
@@ -397,11 +398,11 @@ namespace Unit3DStudio
                                 model[i].Rotate(Engine3D.Radian90, Axis3D.OXyz);
                                 Engine3D.RotatePoint3D(Engine3D.Radian90, Axis3D.OXyz, CoordLineTopMain[i]);
                                 break;
-                            /*
-                        case 2:
-                            model[i].Rotate(0, Axis3D.OXyz);
-                            break;
-                             */
+                                /*
+                            case 2:
+                                model[i].Rotate(0, Axis3D.OXyz);
+                                break;
+                                 */
                         }
 
                         CoordLineTopCamera[i] = new Point3D(CoordLineTopMain[i]);
@@ -491,6 +492,10 @@ namespace Unit3DStudio
                 if (modelController.CreateActivePolygonBuffer() != 0) throw new Exception(ErrorLog.GetLastError());
                 #endregion
 
+                SurfaceBufferCount = 3;// (Environment.ProcessorCount == 1) ? 1 : (Environment.ProcessorCount / 2);
+
+                SurfaceBuilder = new DrawingSurfaceBuilder(pictMain, SurfaceBufferCount);
+
                 this.WindowState = FormWindowState.Maximized;
 
                 timerDraw.Enabled = true;
@@ -512,7 +517,7 @@ namespace Unit3DStudio
                 {
                     while (!ini.EndOfStream)
                     {
-                        string[] line=ini.ReadLine().Split('=');                        
+                        string[] line = ini.ReadLine().Split('=');
                         if (line.Length != 2) continue;
 
                         switch (line[0].ToUpper().Trim())
@@ -538,7 +543,7 @@ namespace Unit3DStudio
         public static void SaveUserSettings()
         {
             try
-            {                
+            {
                 if (File.Exists(ApplicationFolder + iniUserSettings)) File.Delete(ApplicationFolder + iniUserSettings);
                 Application.DoEvents();
                 StreamWriter ini = new StreamWriter(ApplicationFolder + iniUserSettings);
@@ -558,6 +563,7 @@ namespace Unit3DStudio
             }
         }
 
+
         private void timerDraw_Tick(object sender, EventArgs e)
         {
             try
@@ -565,17 +571,17 @@ namespace Unit3DStudio
                 timerDraw.Enabled = false;
                 if (pictMain.ClientRectangle.Width == 0) return;
 
-                FPSStatistics fpsStatistics = new FPSStatistics("Старт", 100);                
+                FPSStatistics fpsStatistics = new FPSStatistics("Старт", 100);
 
                 #region Инициализируем поверхности рисования при необходимости
-                if (buffDrawMain == null) buffDrawMain = new Bitmap(pictMain.ClientRectangle.Width, pictMain.ClientRectangle.Height);
-                if (graphDrawMain == null) graphDrawMain = Graphics.FromImage(buffDrawMain);
+                if (Surface == null) Surface = SurfaceBuilder.Instance();
+                else Surface.ResetSurfaces();
                 #endregion
 
                 #region Создание и отрисовка сцены 
 
-                #region Заливаем поверхность рисования цветом фона                
-                graphDrawMain.Clear(Color.FromArgb((ScreenshotMode & ScreenshotAlpha) ? 0 : 255, BackgroundColorR, BackgroundColorG, BackgroundColorB));
+                #region Заливаем поверхность рисования цветом фона 
+                Surface.ClearSurfaces(Color.FromArgb((ScreenshotMode & ScreenshotAlpha) ? 0 : 255, BackgroundColorR, BackgroundColorG, BackgroundColorB));
                 #endregion заливаем поверхность рисования цветом фона                
 
                 if (ScreenshotMode)
@@ -586,7 +592,7 @@ namespace Unit3DStudio
                 fpsStatistics.NextPoint("Инициализация и залифка фона");
 
                 #region Сбрасываем список активных моделей (юнитов)                
-                Parallel.For(0,UnitCount,(int i)=> { ActiveUnitIndex[i] = i; });
+                Parallel.For(0, UnitCount, (int i) => { ActiveUnitIndex[i] = i; });
                 ActiveUnitIndexCount = UnitCount;
                 fpsStatistics.NextPoint("Сбрасываем список активных моделей (юнитов)");
                 #endregion
@@ -693,20 +699,20 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Фильтруем невидимые полигоны (часть 1)
-                {                    
+                {
                     Point tmpPoint = new Point(pictMain.ClientRectangle.Width, pictMain.ClientRectangle.Height);
                     Parallel.For(0, ActiveUnitIndexCount, (int i) =>
                       {
                           if (model[ActiveUnitIndex[i]] != null)
                           {
-                            #region Фильтрация слишком близко расположенных полигонов
-                            if (model[ActiveUnitIndex[i]].FilterPolygonByZPos(0, -1) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            #endregion
+                              #region Фильтрация слишком близко расположенных полигонов
+                              if (model[ActiveUnitIndex[i]].FilterPolygonByZPos(0, -1) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                              #endregion
 
-                            #region Фильтрация полигонов, расположенных за пределами экрана
-                            if (model[ActiveUnitIndex[i]].FilterPolygonByXYPos(tmpPoint) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            #endregion
-                        }
+                              #region Фильтрация полигонов, расположенных за пределами экрана
+                              if (model[ActiveUnitIndex[i]].FilterPolygonByXYPos(tmpPoint) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                              #endregion
+                          }
                       });
                     fpsStatistics.NextPoint("Фильтруем невидимые полигоны (часть 1)");
                 }
@@ -728,10 +734,10 @@ namespace Unit3DStudio
                      if (model[ActiveUnitIndex[i]] != null)
                          if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
                          {
-                            #region Фильтрация полигонов, отвернутых от сцены
-                            if (model[ActiveUnitIndex[i]].FilterPolygonDirectedAwayFromScene() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            #endregion
-                        }
+                             #region Фильтрация полигонов, отвернутых от сцены
+                             if (model[ActiveUnitIndex[i]].FilterPolygonDirectedAwayFromScene() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                             #endregion
+                         }
                  });
                 fpsStatistics.NextPoint("Фильтруем невидимые полигоны (часть 2)");
                 #endregion
@@ -756,15 +762,15 @@ namespace Unit3DStudio
                      if (model[ActiveUnitIndex[i]] != null)
                          if (model[ActiveUnitIndex[i]].ActivePolygonIndexesCount > 0)
                          {
-                            #region Расчет нормалей для расчета освещения
-                            if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(false) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            #endregion
+                             #region Расчет нормалей для расчета освещения
+                             if (model[ActiveUnitIndex[i]].CalculatePolygonNormals(false) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                             #endregion
 
-                            #region Сброс освещения
-                            if (model[ActiveUnitIndex[i]].ResetLighting() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                            #endregion
+                             #region Сброс освещения
+                             if (model[ActiveUnitIndex[i]].ResetLighting() != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                             #endregion
 
-                            for (int j = 0; j < DirectLightColor.Length; j++)
+                             for (int j = 0; j < DirectLightColor.Length; j++)
                                  if (model[ActiveUnitIndex[i]].AddLight(DirectVectorLight[j], DirectLightColor[j], DirectLightPower[j], LightTypes.Directional) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                              if (model[ActiveUnitIndex[i]].AddLight(null, Color.FromArgb(255, AmbientColorR, AmbientColorG, AmbientColorB), AmbientLightPower, LightTypes.Ambient) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
                          }
@@ -780,7 +786,7 @@ namespace Unit3DStudio
                 #endregion
 
                 #region Выбор объекта                
-                {                    
+                {
                     if (MouseSelectedObjectIdx == -1)
                     {
                         PointF[] p = new PointF[3];
@@ -824,15 +830,16 @@ namespace Unit3DStudio
                 switch (ModelDrawType)
                 {
                     case 0:
-                        if (modelController.ShowWideModel(graphDrawMain, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
+                        if (modelController.ShowWideModel(Surface, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
                         break;
                     case 1:
-                        if (modelController.ShowPolygonModel(graphDrawMain, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
+                        if (modelController.ShowPolygonModel(Surface, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
                         break;
                     default:
-                        if (modelController.ShowModel(graphDrawMain, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
+                        if (modelController.ShowModel(Surface, modelController.ClosedSurfaceModel ? PolygonSides.Auto : PolygonSides.AllSides) != 0) throw new Exception(ErrorLog.GetLastError());
                         break;
                 }
+                Surface.MergeBuffers();
                 fpsStatistics.NextPoint("Отрисовка сцены");
                 #endregion
 
@@ -846,18 +853,8 @@ namespace Unit3DStudio
                         if (fNamePart.Trim() == "") fNamePart = "Screenshot";
                         string fName = ScreenshotFolder + "\\" + fNamePart + ".png";
 
-                        Bitmap screenshot = buffDrawMain;
-
-                        if (ScreenshotFrame)
-                        {
-                            Graphics gfxScreenshot;
-                            screenshot = new Bitmap(buffDrawMain, new Size(ScreenshotSize.X, ScreenshotSize.Y));
-                            gfxScreenshot = Graphics.FromImage(screenshot);
-                            gfxScreenshot.DrawImage(buffDrawMain, 0, 0, new Rectangle((buffDrawMain.Width - ScreenshotSize.X) / 2, (buffDrawMain.Height - ScreenshotSize.Y) / 2, ScreenshotSize.X, ScreenshotSize.Y), GraphicsUnit.Pixel);
-                        }
-
-                        screenshot.Save(fName, System.Drawing.Imaging.ImageFormat.Png);
-
+                        Surface.SaveScreenshoot(fName, 0, System.Drawing.Imaging.ImageFormat.Png, ScreenshotFrame ? ScreenshotSize.X : 0, ScreenshotFrame ? ScreenshotSize.Y : 0);
+     
                         if (!ScreenshotSeries)
                         {
                             ScreenshotMode = false;
@@ -885,9 +882,9 @@ namespace Unit3DStudio
                 if (координатныеОсиToolStripMenuItem.Checked)
                 {
                     SolidBrush brush = new SolidBrush(Color.Black);
-                    graphDrawMain.DrawString("X", frmMain.DefaultFont, brush, CoordLineTopCamera[0].X, CoordLineTopCamera[0].Y);
-                    graphDrawMain.DrawString("Y", frmMain.DefaultFont, brush, CoordLineTopCamera[1].X, CoordLineTopCamera[1].Y);
-                    graphDrawMain.DrawString("Z", frmMain.DefaultFont, brush, CoordLineTopCamera[2].X, CoordLineTopCamera[2].Y);
+                    Surface.DrawString("X", frmMain.DefaultFont, brush, CoordLineTopCamera[0].X, CoordLineTopCamera[0].Y,0);
+                    Surface.DrawString("Y", frmMain.DefaultFont, brush, CoordLineTopCamera[1].X, CoordLineTopCamera[1].Y,0);
+                    Surface.DrawString("Z", frmMain.DefaultFont, brush, CoordLineTopCamera[2].X, CoordLineTopCamera[2].Y,0);
                 }
                 #endregion
 
@@ -895,7 +892,7 @@ namespace Unit3DStudio
                 if (WindowInFrame & (!ScreenshotMode))
                 {
                     Pen pn = new Pen(Color.Black);
-                    graphDrawMain.DrawRectangle(pn, new Rectangle((buffDrawMain.Width - WindowFrame.X) / 2, (buffDrawMain.Height - WindowFrame.Y) / 2, WindowFrame.X, WindowFrame.Y));
+                    Surface.DrawRectangle(pn, new Rectangle((Surface.Width - WindowFrame.X) / 2, (Surface.Height - WindowFrame.Y) / 2, WindowFrame.X, WindowFrame.Y),0);
                 }
                 #endregion
 
@@ -911,19 +908,20 @@ namespace Unit3DStudio
                         FPSText += $"\n\t{fpsStatistics.PointDescription[i]}: { fpsStatistics.Percent(i)}%";
 
                     SolidBrush brush = new SolidBrush(Color.Black);
-                    graphDrawMain.DrawString("Координаты камеры: x:" + CameraPos.X.ToString() +
+                    Surface.DrawString("Координаты камеры: x:" + CameraPos.X.ToString() +
                                                               "; y:" + CameraPos.Y.ToString() +
                                                               "; z:" + CameraPos.Z.ToString() +
                                                               "; \nКоличество полигонов активных/всего: " + (modelController.CollectionActivePolygonCount - 2088).ToString() +
                                                               " / " + (modelController.ActivePolygonBuffer.Length - 2088).ToString() +
                                                               "\nFPS: " + fpsStatistics.FPS().ToString() +
-                                                              FPSText 
-                        , frmMain.DefaultFont, brush, 0, 0);
+                                                              FPSText+
+                                                              $"\n\tКоличество буферов: {SurfaceBufferCount}"
+                        , frmMain.DefaultFont, brush, 0, 0,0);
                 }
                 #endregion
 
                 #region Переключаем кадр
-                pictMain.Image = buffDrawMain;
+                Surface.Render();
                 #endregion
 
                 timerDraw.Enabled = true;
@@ -984,7 +982,7 @@ namespace Unit3DStudio
                                 float deltaLevel = info.MeshInfo[j].floatParameters[3] - info.MeshInfo[j].floatParameters[2];
                                 float angleBottom = info.MeshInfo[j].floatParameters[0];
                                 float angleTop = info.MeshInfo[j].floatParameters[1];
-                                float deltaAngle = angleTop-angleBottom;
+                                float deltaAngle = angleTop - angleBottom;
                                 float angle = 0;
 
                                 if (deltaLevel > 0)
@@ -996,11 +994,11 @@ namespace Unit3DStudio
                                         }
                                         else
                                             if (_model.CameraVertex3D[i].Y < info.MeshInfo[j].floatParameters[2])
-                                            {
-                                                if (info.MeshInfo[j].intParameters[0] == 0) continue; else angle = angleBottom;
-                                            }
-                                            else
-                                                angle = (_model.CameraVertex3D[i].Y - info.MeshInfo[j].floatParameters[2]) / deltaLevel * (deltaAngle) + angleBottom;
+                                        {
+                                            if (info.MeshInfo[j].intParameters[0] == 0) continue; else angle = angleBottom;
+                                        }
+                                        else
+                                            angle = (_model.CameraVertex3D[i].Y - info.MeshInfo[j].floatParameters[2]) / deltaLevel * (deltaAngle) + angleBottom;
                                         if (Engine3D.RotatePoint3D(angle, Axis3D.OYxz, _model.CameraVertex3D[i]) != 0) throw new Exception(ErrorLog.GetLastError());
                                     }
                             }
@@ -1022,22 +1020,22 @@ namespace Unit3DStudio
                                         }
                                         else
                                             if (_model.CameraVertex3D[i].Y < info.MeshInfo[j].floatParameters[1])
-                                            {
-                                                continue;
-                                            }
-                                            else
-                                            {
-                                                angle = (_model.CameraVertex3D[i].Y - info.MeshInfo[j].floatParameters[1]) / deltaLevel * (deltaAngle) + angleBottom;
-                                            }
+                                        {
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            angle = (_model.CameraVertex3D[i].Y - info.MeshInfo[j].floatParameters[1]) / deltaLevel * (deltaAngle) + angleBottom;
+                                        }
 
                                         if (Engine3D.RotatePoint3D(angle, Axis3D.OZyx, _model.CameraVertex3D[i]) != 0) throw new Exception(ErrorLog.GetLastError());
-                                        
+
                                     }
                             }
                             break;
                         case 6:
                             {
-                                float Rx = info.MeshInfo[j].floatParameters[1]- info.MeshInfo[j].floatParameters[0];
+                                float Rx = info.MeshInfo[j].floatParameters[1] - info.MeshInfo[j].floatParameters[0];
                                 float r = 0;
                                 float dY1 = info.MeshInfo[j].floatParameters[6] / 100;
                                 float dY2 = info.MeshInfo[j].floatParameters[7] / 100;
@@ -1055,9 +1053,9 @@ namespace Unit3DStudio
                                     if (_model.CameraVertex3D[i].Z < info.MeshInfo[j].floatParameters[4]) continue;
                                     if (_model.CameraVertex3D[i].Z > info.MeshInfo[j].floatParameters[5]) continue;
 
-                                    r = (info.MeshInfo[j].floatParameters[1] - _model.CameraVertex3D[i].X)/Rx;
+                                    r = (info.MeshInfo[j].floatParameters[1] - _model.CameraVertex3D[i].X) / Rx;
 
-                                    _model.CameraVertex3D[i].Y = _model.CameraVertex3D[i].Y*(r * dY2 + (1 - r) * dY1);
+                                    _model.CameraVertex3D[i].Y = _model.CameraVertex3D[i].Y * (r * dY2 + (1 - r) * dY1);
                                 }
                             }
                             break;
@@ -1200,15 +1198,15 @@ namespace Unit3DStudio
                 if (SelectedObjectIdx >= 0)
                 {
                     #region Наименование
-                    
+
 
                     #region Выбранный объект
                     VisualComponentMethodLock++;
                     cmbMesh.SelectedIndex = SelectedObjectIdx - CoordLineCount - SelectionLineCount;
                     VisualComponentMethodLock--;
-                    statusStrip1.Items[0].Text = (cmbMesh.SelectedIndex >= 0) ? ("Выбран объект № " + (SelectedObjectIdx - CoordLineCount - SelectionLineCount).ToString()+ "; "): "";
+                    statusStrip1.Items[0].Text = (cmbMesh.SelectedIndex >= 0) ? ("Выбран объект № " + (SelectedObjectIdx - CoordLineCount - SelectionLineCount).ToString() + "; ") : "";
                     #endregion
-                    
+
                     #endregion
 
                     #region Опорные точки
@@ -1550,7 +1548,7 @@ namespace Unit3DStudio
                     #endregion
 
                     if (trackOpacity.Enabled) trackOpacity_ValueChanged(null, null);
-                    
+
                     VisualComponentMethodLock--;
 
                     #region Модификации
@@ -1560,7 +1558,7 @@ namespace Unit3DStudio
                     listModifers_SelectedIndexChanged(null, null);
                     #endregion
 
-                    
+
                 }
                 #endregion
             }
@@ -1612,8 +1610,7 @@ namespace Unit3DStudio
         {
             try
             {
-                graphDrawMain = null;
-                buffDrawMain = null;
+                Surface?.DevalidationSurfaces();
                 timerDraw.Enabled = true;
             }
             catch (Exception er)
@@ -1629,7 +1626,7 @@ namespace Unit3DStudio
 
         private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (((UnitCount - CoordLineCount - SelectionLineCount) > 0)& isEditedProject)
+            if (((UnitCount - CoordLineCount - SelectionLineCount) > 0) & isEditedProject)
                 switch (MessageBox.Show("Сохранить текущий проект?", "Внимание!", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning))
                 {
                     case DialogResult.Yes: сохранитьПроектКакToolStripMenuItem_Click(null, null);
@@ -1640,10 +1637,10 @@ namespace Unit3DStudio
                         break;
                 }
             if (!e.Cancel)
-            try
+                try
                 {
-                Directory.Delete(TempDirectory, true);
-            }
+                    Directory.Delete(TempDirectory, true);
+                }
                 catch
                 {
                     MessageBox.Show("Ошибка при удалении каталога хранения временных файлов");
@@ -1736,7 +1733,7 @@ namespace Unit3DStudio
 
         private void pictMain_MouseWeel(object sender, MouseEventArgs e)
         {
-            CameraPos.Z += (float)e.Delta * MouseWheelDiv/100*(MouseWheelInverse?-1:1);
+            CameraPos.Z += (float)e.Delta * MouseWheelDiv / 100 * (MouseWheelInverse ? -1 : 1);
         }
 
         private void pictMain_MouseUp(object sender, MouseEventArgs e)
@@ -1770,7 +1767,7 @@ namespace Unit3DStudio
                 {
 
 
-                    CameraAngle.Z += Engine3D.RadianDegrees * (float)(e.X - MouseRightX) *MouseAxisDiv/ 1000f;
+                    CameraAngle.Z += Engine3D.RadianDegrees * (float)(e.X - MouseRightX) * MouseAxisDiv / 1000f;
                     CameraAngle.Y += Engine3D.RadianDegrees * (float)(e.Y - MouseRightY) * MouseAxisDiv / 1000f;
 
                     /*
@@ -1787,7 +1784,7 @@ namespace Unit3DStudio
                 if (RollingCamera)
                 {
 
-                    CameraPos.Y += (float)(MouseLeftY - e.Y) * MouseXYDiv/100;
+                    CameraPos.Y += (float)(MouseLeftY - e.Y) * MouseXYDiv / 100;
 
                     /*
                     Engine3D.RotatePoint3D((-MouseLeftY + e.Y) * Engine3D.RadianDegrees/10,Axis3D.OXyz,CameraPos);
@@ -1796,7 +1793,7 @@ namespace Unit3DStudio
 
                     MouseLeftY = e.Y;
 
-                    CameraPos.X += (float)(e.X - MouseLeftX) * MouseXYDiv/100;
+                    CameraPos.X += (float)(e.X - MouseLeftX) * MouseXYDiv / 100;
                     MouseLeftX = e.X;
                 }
 
@@ -1855,7 +1852,7 @@ namespace Unit3DStudio
                                 );
                             break;
                         case ModelTypes.SurfaceHole3D:
-                            model[UnitCount - 1] = new SurfaceHole3D(5,5,50,50,50,50);
+                            model[UnitCount - 1] = new SurfaceHole3D(5, 5, 50, 50, 50, 50);
                             break;
                         case ModelTypes.ComplexModel3D:
                             model[UnitCount - 1] = new ComplexModel3D();
@@ -2019,7 +2016,7 @@ namespace Unit3DStudio
                     if (FileName == "") throw new Exception("Некорректное имя файла");
                     FileName += ".mdy";
                     #endregion
-                    MeshMod[UnitCount - 1 - CoordLineCount - SelectionLineCount].LoadFromFile(FileName,true);
+                    MeshMod[UnitCount - 1 - CoordLineCount - SelectionLineCount].LoadFromFile(FileName, true);
 
                     MeshMod[UnitCount - 1 - CoordLineCount - SelectionLineCount].RefreshList(listModifers);
                     #endregion
@@ -2037,7 +2034,7 @@ namespace Unit3DStudio
                     #endregion
 
                     MeshListUpdate();
-                    
+
                     MouseSelectedObjectIdx = UnitCount - 1;
                     MouseSelectObject();
 
@@ -2289,7 +2286,7 @@ namespace Unit3DStudio
 
         private void panel1_Paint(object sender, PaintEventArgs e)
         {
-            
+
         }
 
         private void btnColorDialog_Click(object sender, EventArgs e)
@@ -2303,7 +2300,7 @@ namespace Unit3DStudio
         }
 
         private void nudMatte1_ValueChanged(object sender, EventArgs e)
-        {            
+        {
         }
 
         private void nudSizeX_ValueChanged(object sender, EventArgs e)
@@ -2415,7 +2412,7 @@ namespace Unit3DStudio
             }
         }
 
-        
+
         private void cmbFillType_SelectedIndexChanged(object sender, EventArgs e)
         {
             try
@@ -2525,7 +2522,7 @@ namespace Unit3DStudio
             {
                 if (lblColor1.Visible) return;
                 colorDialog1.Color = panelColor1.BackColor;
-                if (colorDialog1.ShowDialog()!=DialogResult.OK) return;
+                if (colorDialog1.ShowDialog() != DialogResult.OK) return;
                 panelColor1.BackColor = colorDialog1.Color;
                 //if (VisualComponentMethodLock > 0) return;
                 model[SelectedObjectIdx].SetColor(panelColor1.BackColor, 0, -1, PolygonSides.FrontSide);
@@ -2558,7 +2555,7 @@ namespace Unit3DStudio
 
                 VisualComponentMethodLock++;
                 nudColorIntCode.Value = panelColor2.BackColor.ToArgb();
-                VisualComponentMethodLock--; 
+                VisualComponentMethodLock--;
 
                 isEditedProject = true;
                 isEditedObject = true;
@@ -2787,14 +2784,14 @@ namespace Unit3DStudio
                         nudBendTop.Value = (decimal)(MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[2]);
                         break;
                     case 6:
-                        nudCollapseXmin.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[0];
-                        nudCollapseXmax.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[1];
-                        nudCollapseYmin.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[2];
-                        nudCollapseYmax.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[3];
-                        nudCollapseZmin.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[4];
-                        nudCollapseZmax.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[5];
-                        nudCollapseDY1.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[6];
-                        nudCollapseDY2.Value=(decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[7];
+                        nudCollapseXmin.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[0];
+                        nudCollapseXmax.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[1];
+                        nudCollapseYmin.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[2];
+                        nudCollapseYmax.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[3];
+                        nudCollapseZmin.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[4];
+                        nudCollapseZmax.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[5];
+                        nudCollapseDY1.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[6];
+                        nudCollapseDY2.Value = (decimal)MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[7];
                         break;
                         /*
                     case 7:
@@ -2942,7 +2939,7 @@ namespace Unit3DStudio
                 VisualComponentMethodLock++;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].Add(new MeshModify(0));
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].CurrentLength - 1].SetCode(MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[idx].ModifyCode);
-                
+
                 if (MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[idx].intParameters != null)
                     for (int i = 0; i < MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[idx].intParameters.Length; i++)
                         MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].CurrentLength - 1].intParameters[i] =
@@ -3062,7 +3059,7 @@ namespace Unit3DStudio
                 if (saveObjectDlg.ShowDialog() != DialogResult.OK) return;
                 #endregion
 
-                timerDraw.Enabled = false;                
+                timerDraw.Enabled = false;
 
                 #region Сохраняем модель в файл
                 switch (model[SelectedObjectIdx].ModelType())
@@ -3291,7 +3288,7 @@ namespace Unit3DStudio
                                     break;
                             }
                         }
-                    }                    
+                    }
                 }
                 finally
                 {
@@ -3312,7 +3309,7 @@ namespace Unit3DStudio
                 #endregion
 
                 if (!isRecovery)
-                {                    
+                {
                     if (!fAdd)
                     {
                         CurrentAutoSaveCount = 0;
@@ -3325,7 +3322,7 @@ namespace Unit3DStudio
                     isEditedObject = false;
                 }
             }
-            catch(Exception er)
+            catch (Exception er)
             {
                 MessageBox.Show("OpenProject\n" + er.Message);
             }
@@ -3336,7 +3333,7 @@ namespace Unit3DStudio
         {
             try
             {
-                if (NewProject() == DialogResult.Cancel) return; 
+                if (NewProject() == DialogResult.Cancel) return;
                 if (openProjectDlg.ShowDialog() != DialogResult.OK) return;
                 saveProjectDlg.FileName = openProjectDlg.FileName;
                 OpenProject(openProjectDlg.FileName);
@@ -3368,7 +3365,7 @@ namespace Unit3DStudio
             {
                 if (openProjectDlg.ShowDialog() != DialogResult.OK) return;
                 string txt = this.Text;
-                OpenProject(openProjectDlg.FileName,false,true);
+                OpenProject(openProjectDlg.FileName, false, true);
                 this.Text = txt;
                 isEditedObject = true;
                 isEditedProject = true;
@@ -3510,7 +3507,7 @@ namespace Unit3DStudio
                         break;
                 }
                 #endregion
-                
+
                 #region Начальные размеры
                 switch (model[SelectedObjectIdx].ModelType())
                 {
@@ -3568,7 +3565,7 @@ namespace Unit3DStudio
                         break;
                 }
                 #endregion
-                
+
                 #region Пересчет модели и обновление меток выбора
                 model[SelectedObjectIdx].RebuildModel(true);
                 if (modelController.CreateActivePolygonBuffer() != 0) throw new Exception(ErrorLog.GetLastError());
@@ -3589,7 +3586,7 @@ namespace Unit3DStudio
             {
                 lblMatteVal1.Text = "Матовость внешняя: " + trackMatte1.Value.ToString() + "%";
                 if (VisualComponentMethodLock > 0) return;
-                if (lblMatte1.Visible) return;                
+                if (lblMatte1.Visible) return;
                 model[SelectedObjectIdx].SetMatte(((float)trackMatte1.Value) / 100, 0, -1, PolygonSides.FrontSide);
                 isEditedProject = true;
                 isEditedObject = true;
@@ -3606,7 +3603,7 @@ namespace Unit3DStudio
             {
                 lblMatteVal2.Text = "Матовость внутренняя: " + trackMatte2.Value.ToString() + "%";
                 if (VisualComponentMethodLock > 0) return;
-                if (lblMatte2.Visible) return;                
+                if (lblMatte2.Visible) return;
                 model[SelectedObjectIdx].SetMatte(((float)trackMatte2.Value) / 100, 0, -1, PolygonSides.RearSide);
                 isEditedProject = true;
                 isEditedObject = true;
@@ -3624,8 +3621,8 @@ namespace Unit3DStudio
                 if (SelectedObjectIdx < 0) return;
                 timerDraw.Enabled = false;
                 frmColorPaint frm = new frmColorPaint();
-                if (model[SelectedObjectIdx].ResetActivePolygonIndexes()!=0) throw new Exception(ErrorLog.GetLastError());
-                if (model[SelectedObjectIdx].ResetCameraModel()!=0) throw new Exception(ErrorLog.GetLastError());
+                if (model[SelectedObjectIdx].ResetActivePolygonIndexes() != 0) throw new Exception(ErrorLog.GetLastError());
+                if (model[SelectedObjectIdx].ResetCameraModel() != 0) throw new Exception(ErrorLog.GetLastError());
                 ModifyModel(model[SelectedObjectIdx], MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount]);
                 if (model[SelectedObjectIdx].CalculatePolygonCenters() != 0) throw new Exception(ErrorLog.GetLastError());
                 if (frm.Run(ref model[SelectedObjectIdx], PolygonSides.FrontSide) == DialogResult.OK)
@@ -3678,7 +3675,7 @@ namespace Unit3DStudio
                 timerDraw.Enabled = false;
                 timerAutoSaveChanges.Enabled = false;
 
-                SaveProject(TempProjectName+"-"+CurrentAutoSaveIndex.ToString()+".tmp.temp");
+                SaveProject(TempProjectName + "-" + CurrentAutoSaveIndex.ToString() + ".tmp.temp");
 
                 CurrentAutoSaveIndex++;
                 CurrentAutoSaveCount++;
@@ -3694,9 +3691,9 @@ namespace Unit3DStudio
                 isEditedObject = false;
                 timerAutoSaveChanges.Enabled = true;
             }
-            catch(Exception er)
+            catch (Exception er)
             {
-                MessageBox.Show("Ошибка при автосохранении.\n"+er.Message);
+                MessageBox.Show("Ошибка при автосохранении.\n" + er.Message);
             }
             timerDraw.Enabled = true;
         }
@@ -3715,18 +3712,18 @@ namespace Unit3DStudio
 
                 if (CurrentAutoSaveIndex >= MaxAutoSaveBufferSize) CurrentAutoSaveIndex = 0;
                 if (CurrentAutoSaveCount > MaxAutoSaveBufferSize) CurrentAutoSaveCount = MaxAutoSaveBufferSize;
-                
+
                 int idx = CurrentAutoSaveIndex - 1;
                 if (idx < 0) idx = MaxAutoSaveBufferSize - 1;
 
                 NewProject(true);
                 OpenProject(TempProjectName + "-" + idx.ToString() + ".tmp.temp", true);
 
-                toolStripButton10.Enabled = CurrentAutoSaveIndex != RedoAutoSaveIndex; 
+                toolStripButton10.Enabled = CurrentAutoSaveIndex != RedoAutoSaveIndex;
                 toolStripButton3.Enabled = CurrentAutoSaveCount > 1;
 
                 isEditedObject = false;
-                timerAutoSaveChanges.Enabled = true;                
+                timerAutoSaveChanges.Enabled = true;
             }
             catch (Exception er)
             {
@@ -3739,13 +3736,13 @@ namespace Unit3DStudio
         private void toolStripButton3_Click(object sender, EventArgs e)
         {
             try
-            {                
+            {
                 CurrentAutoSaveIndex--;
                 CurrentAutoSaveCount--;
                 if (CurrentAutoSaveCount <= 0)
                 {
                     CurrentAutoSaveIndex++;
-                    CurrentAutoSaveCount++;                    
+                    CurrentAutoSaveCount++;
                     return;
                 }
 
@@ -3758,10 +3755,10 @@ namespace Unit3DStudio
                 if (idx < 0) idx = MaxAutoSaveBufferSize - 1;
 
                 NewProject(true);
-                OpenProject(TempProjectName + "-" + idx.ToString() + ".tmp.temp",true);
+                OpenProject(TempProjectName + "-" + idx.ToString() + ".tmp.temp", true);
 
-                toolStripButton10.Enabled = CurrentAutoSaveIndex != RedoAutoSaveIndex; 
-                toolStripButton3.Enabled = CurrentAutoSaveCount>1;
+                toolStripButton10.Enabled = CurrentAutoSaveIndex != RedoAutoSaveIndex;
+                toolStripButton3.Enabled = CurrentAutoSaveCount > 1;
                 isEditedObject = false;
                 timerAutoSaveChanges.Enabled = true;
             }
@@ -3780,7 +3777,7 @@ namespace Unit3DStudio
 
         private void управлениеКурсоромToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            
+
         }
 
         private void nudTwistAngleTop_ValueChanged(object sender, EventArgs e)
@@ -3795,7 +3792,7 @@ namespace Unit3DStudio
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[0] = (float)nudTwistAngleBottom.Value * Engine3D.RadianDegrees;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[3] = (float)nudTwistLevelTop.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[2] = (float)nudTwistLevelBottom.Value;
-                MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].intParameters[0] = checkTwistDown.Checked?1:0;
+                MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].intParameters[0] = checkTwistDown.Checked ? 1 : 0;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].intParameters[1] = checkTwistTop.Checked ? 1 : 0;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].UpdateListBox(listModifers, listModifers.SelectedIndex);
                 VisualComponentMethodLock--;
@@ -3816,7 +3813,7 @@ namespace Unit3DStudio
 
         private void TabsheetProperties_SelectedIndexChanged(object sender, EventArgs e)
         {
-            
+
         }
 
         private void nudBendAngle_ValueChanged(object sender, EventArgs e)
@@ -3860,16 +3857,16 @@ namespace Unit3DStudio
                 if (SelectedObjectIdx < 0) return;
                 if (listModifers.SelectedIndex < 0) return;
                 VisualComponentMethodLock++;
-                
+
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[0] = (float)nudCollapseXmin.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[1] = (float)nudCollapseXmax.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[2] = (float)nudCollapseYmin.Value;
-                MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[3] =  (float)nudCollapseYmax.Value;
+                MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[3] = (float)nudCollapseYmax.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[4] = (float)nudCollapseZmin.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[5] = (float)nudCollapseZmax.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[6] = (float)nudCollapseDY1.Value;
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].floatParameters[7] = (float)nudCollapseDY2.Value;
-                
+
                 MeshMod[SelectedObjectIdx - CoordLineCount - SelectionLineCount].MeshInfo[listModifers.SelectedIndex].UpdateListBox(listModifers, listModifers.SelectedIndex);
                 VisualComponentMethodLock--;
                 isEditedProject = true;
@@ -3888,12 +3885,12 @@ namespace Unit3DStudio
 
         private void panelGrdSphColorIn_Click(object sender, EventArgs e)
         {
-           
+
         }
 
         private void panelGrdSphColorOut_Click(object sender, EventArgs e)
         {
-           
+
         }
 
         private void NudGrdSphX_KeyDown(object sender, KeyEventArgs e)
@@ -3909,7 +3906,7 @@ namespace Unit3DStudio
         }
 
         private void txtExtColorCode_TextChanged(object sender, EventArgs e)
-        {            
+        {
         }
 
         private void nudColorExtCode_ValueChanged(object sender, EventArgs e)
@@ -3979,14 +3976,14 @@ namespace Unit3DStudio
                 Point3D modelCenter = new Point3D();
                 Point3D minPos = new Point3D();
                 Point3D maxPos = new Point3D();
-                
+
                 for (int i = CoordLineCount + SelectionLineCount; i < UnitCount; i++)
                 {
                     model[i].ResetCameraModel();
                     ModifyModel(model[i], MeshMod[i - CoordLineCount - SelectionLineCount]);
                     if (model[i].CenterVertexValue(ref modelCenter, 1) != 0) throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
 
-                    if (i== CoordLineCount + SelectionLineCount)
+                    if (i == CoordLineCount + SelectionLineCount)
                     {
                         minPos.CopyFrom(modelCenter);
                         maxPos.CopyFrom(modelCenter);
@@ -4034,12 +4031,12 @@ namespace Unit3DStudio
                 try
                 {
                     int beforeVertex = model[SelectedObjectIdx].MainVertex3D.Length;
-                    int beforePoly = model[SelectedObjectIdx].Polygon.Length;                    
+                    int beforePoly = model[SelectedObjectIdx].Polygon.Length;
                     switch (((ComplexModel3D)model[SelectedObjectIdx]).MergeNearVertex(new frmMergeNearVertex().Run()))
                     {
-                        case 0:break;
-                        case -1:throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
-                        case -2:                            
+                        case 0: break;
+                        case -1: throw new Exception(Graph3DLibrary.ErrorLog.GetLastError());
+                        case -2:
                             model[SelectedObjectIdx] = new ComplexModel3D(tmpBack);
                             InitModelController();
                             timerDraw.Enabled = true;
@@ -4051,7 +4048,7 @@ namespace Unit3DStudio
                     model[SelectedObjectIdx].ResetLighting();
                     int afterVertex = model[SelectedObjectIdx].MainVertex3D.Length;
                     int afterPoly = model[SelectedObjectIdx].Polygon.Length;
-                    MessageBox.Show("Удалено "+(beforeVertex-afterVertex).ToString()+" ("+ Math.Round(100f*(beforeVertex - afterVertex)/beforeVertex,2).ToString("0.00") + "%) вершин и "+(beforePoly-afterPoly).ToString()+ " ("+ Math.Round(100f * (beforePoly - afterPoly) / beforePoly, 2).ToString("0.00") + "%) полигонов.");
+                    MessageBox.Show("Удалено " + (beforeVertex - afterVertex).ToString() + " (" + Math.Round(100f * (beforeVertex - afterVertex) / beforeVertex, 2).ToString("0.00") + "%) вершин и " + (beforePoly - afterPoly).ToString() + " (" + Math.Round(100f * (beforePoly - afterPoly) / beforePoly, 2).ToString("0.00") + "%) полигонов.");
                     isEditedProject = true;
                     isEditedObject = true;
                 }
@@ -4062,9 +4059,9 @@ namespace Unit3DStudio
                 timerDraw.Enabled = true;
             }
             catch (Exception er)
-            {                
-                MessageBox.Show(er.Message);                
-            }            
+            {
+                MessageBox.Show(er.Message);
+            }
         }
 
         private void TechInfoToolStripMenuItem_Click(object sender, EventArgs e)
@@ -4089,7 +4086,7 @@ namespace Unit3DStudio
         {
             MeshInfo = new MeshModify[template.MeshInfo.Length];
             for (int i = 0; i < MeshInfo.Length; i++)
-                MeshInfo[i] = template?.MeshInfo[i]!=null?new MeshModify(template?.MeshInfo[i]):null;
+                MeshInfo[i] = template?.MeshInfo[i] != null ? new MeshModify(template?.MeshInfo[i]) : null;
             CurrentLength = template.CurrentLength;
         }
 
@@ -4216,7 +4213,7 @@ namespace Unit3DStudio
                     switch (currentMode)
                     {
                         case 4:
-                            {                                
+                            {
                                 int firstIndex = 0;
                                 if (fAdd)
                                 {
@@ -4383,11 +4380,11 @@ namespace Unit3DStudio
                     break;
                 case 6: // сплющивание
                     intParameters = null;
-                    floatParameters = new float[] { -50,50,-50,50,-50,50,100,100 };
+                    floatParameters = new float[] { -50, 50, -50, 50, -50, 50, 100, 100 };
                     break;
                 case 7: // сферический градиент
                     intParameters = new int[] { 0, 0, 0, 0, 0, 255, 255, 255, 0 };
-                    floatParameters = new float[] { 0,0,0,0,100,100,100,100 };
+                    floatParameters = new float[] { 0, 0, 0, 0, 100, 100, 100, 100 };
                     break;
                 default:
                     throw new Exception("SetCode(" + ModifyCode.ToString() + "): Указан неизвестный тип модификатора");
@@ -4432,7 +4429,7 @@ namespace Unit3DStudio
                     lv.Items[index] = "Скручивание на (" + (floatParameters[0] / Engine3D.RadianDegrees).ToString("0") + "," + (floatParameters[1] / Engine3D.RadianDegrees).ToString("0") + ") грд., Y: (" + (floatParameters[2]).ToString("0") + "," + (floatParameters[3]).ToString("0") + "); " + ((intParameters[0] == 1) ? "верх;" : "") + ((intParameters[1] == 1) ? "низ;" : "");
                     break;
                 case 5: // Изгиб на угол (float) Angle от плоскости (float) Y1 до (float) Y2
-                    lv.Items[index] = "Изгиб на " + (floatParameters[0] / Engine3D.RadianDegrees).ToString("0")  + " грд., Y: от " + (floatParameters[1]).ToString("0") + " до " + (floatParameters[2]).ToString("0");
+                    lv.Items[index] = "Изгиб на " + (floatParameters[0] / Engine3D.RadianDegrees).ToString("0") + " грд., Y: от " + (floatParameters[1]).ToString("0") + " до " + (floatParameters[2]).ToString("0");
                     break;
                 case 6: // сплющивание 
                     lv.Items[index] = "Сплющивание " + "(" + floatParameters[0].ToString("0") + "/" + floatParameters[1].ToString("0") + ")-" +
@@ -4518,5 +4515,22 @@ namespace Unit3DStudio
     public class ProjectSaver
     {
         public bool Saving = false;
+    }
+
+    public interface IDrawingSurfaceBuilder
+    {
+        IDrawingSurface Instance();
+    }
+
+    public class DrawingSurfaceBuilder: IDrawingSurfaceBuilder
+    {
+        private PictureBox Picture;
+        private int BufferCount;
+        public DrawingSurfaceBuilder(PictureBox picture,int bufferCount)
+        {
+            Picture = picture;
+            BufferCount = bufferCount;
+        }
+        public IDrawingSurface Instance() => new WFDrawingSurface(Picture, BufferCount); 
     }
 }
