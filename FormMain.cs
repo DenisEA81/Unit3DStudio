@@ -492,7 +492,7 @@ namespace Unit3DStudio
                 if (modelController.CreateActivePolygonBuffer() != 0) throw new Exception(ErrorLog.GetLastError());
                 #endregion
 
-                SurfaceBufferCount =  (Environment.ProcessorCount < 3) ? 1 : (Environment.ProcessorCount / 3);
+                SurfaceBufferCount =  (Environment.ProcessorCount < 6) ? 1 : (Environment.ProcessorCount / 6);
 
                 SurfaceBuilder = new DrawingSurfaceBuilder(pictMain, SurfaceBufferCount);
 
