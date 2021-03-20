@@ -51,6 +51,13 @@ namespace Unit3DStudio
         public static bool MouseWheelInverse = false;
         #endregion
 
+        #region Настройки
+        /// <summary>
+        /// Отображение технической информации
+        /// </summary>
+        public static bool ShowTraceInfo = false;
+        #endregion
+
         /// <summary>
         /// Отключение событий визуальных элементов
         /// </summary>
@@ -511,6 +518,7 @@ namespace Unit3DStudio
             try
             {
                 MouseWheelInverse = false;
+                ShowTraceInfo = false;
                 if (!File.Exists(ApplicationFolder + iniUserSettings)) return;
                 StreamReader ini = new StreamReader(ApplicationFolder + iniUserSettings);
                 try
@@ -525,7 +533,10 @@ namespace Unit3DStudio
                             case "MOUSEWHEELINVERTING":
                                 MouseWheelInverse = line[1] == "1";
                                 break;
-
+                            case "SHOWTRACEINFO":
+                                ShowTraceInfo = line[1] == "1";
+                                TechInfoToolStripMenuItem.Checked = ShowTraceInfo;
+                                break;
                         }
                     }
                 }
@@ -551,6 +562,7 @@ namespace Unit3DStudio
                 {
                     ini.WriteLine("[User Settings File]");
                     ini.WriteLine("MouseWheelInverting=" + (MouseWheelInverse ? "1" : "0"));
+                    ini.WriteLine($"ShowTraceInfo={(ShowTraceInfo?1:0)}") ;
                 }
                 finally
                 {
@@ -901,7 +913,7 @@ namespace Unit3DStudio
                 fpsStatistics.NextPoint("Вспомогательные действия");
 
                 #region Подписи
-                if (TechInfoToolStripMenuItem.Checked)
+                if (ShowTraceInfo)
                 {
                     string FPSText = "";
                     for (int i = 1; i < fpsStatistics.CurrentTimePoint; i++)
@@ -4066,7 +4078,9 @@ namespace Unit3DStudio
 
         private void TechInfoToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
+            ShowTraceInfo = !ShowTraceInfo;
+            TechInfoToolStripMenuItem.Checked = ShowTraceInfo;
+            SaveUserSettings();
         }
     }
 
